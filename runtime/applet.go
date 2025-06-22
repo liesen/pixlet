@@ -600,6 +600,9 @@ func (a *Applet) loadModule(thread *starlark.Thread, module string) (starlark.St
 	case "assert.star":
 		return starlarktest.LoadAssertModule()
 
+	case "file.star":
+		return file.LoadModule()
+
 	default:
 		return nil, fmt.Errorf("invalid module: %s", module)
 	}

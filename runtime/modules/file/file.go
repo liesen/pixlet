@@ -4,10 +4,21 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
+	"sync"
 
 	"github.com/mitchellh/hashstructure/v2"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
+)
+
+const (
+	ModuleName = "file"
+)
+
+var (
+	once   sync.Once
+	module starlark.StringDict
 )
 
 type File struct {
@@ -131,4 +142,36 @@ func (r Reader) read(thread *starlark.Thread, _ *starlark.Builtin, args starlark
 		}
 		return returnType(buf), nil
 	}
+}
+
+// read reads the contents of the file as a string. The Starlark signature is:
+//
+//	read(path) -> starlark.String
+func read(thread *starlark.Thread, builtin *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	var (
+		starPath starlark.String
+	)
+
+	if err := starlark.UnpackArgs(
+		"read", args, kwargs, "path", &starPath); err != nil {
+		return nil, fmt.Errorf("unpacking arguments for read: %s", err)
+	}
+
+	buf, err := os.ReadFile(starPath.GoString())
+	return starlark.String(string(buf)), err
+}
+
+func LoadModule() (starlark.StringDict, error) {
+	once.Do(func() {
+		module = starlark.StringDict{
+			ModuleName: &starlarkstruct.Module{
+				Name: ModuleName,
+				Members: starlark.StringDict{
+					"read": starlark.NewBuiltin("read", read),
+				},
+			},
+		}
+	})
+
+	return module, nil
 }
